@@ -1,4 +1,4 @@
-package org.argus.play.random
+package org.argus.feature_extractor.random
 
 import java.io.{File, FileWriter}
 
@@ -7,7 +7,7 @@ import org.argus.amandroid.core.appInfo.AppInfoCollector
 import org.argus.amandroid.core.decompile.{ConverterUtil, DecompileLayout, DecompileStrategy, DecompilerSettings}
 import org.argus.jawa.core.DefaultReporter
 import org.argus.jawa.core.util._
-import org.argus.play.cli.util.CliLogger
+import org.argus.feature_extractor.cli.util.CliLogger
 
 import scala.io.Source
 import scala.language.postfixOps

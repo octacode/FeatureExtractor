@@ -1,4 +1,4 @@
-package org.argus.play.random
+package org.argus.feature_extractor.random
 
 import org.argus.amandroid.alir.componentSummary.ApkYard
 import org.argus.amandroid.alir.pta.model.AndroidModelCallHandler

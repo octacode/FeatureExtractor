@@ -1,4 +1,4 @@
-package org.argus.play.random
+package org.argus.feature_extractor.random
 
 import java.io.{FileReader, FileWriter, PrintWriter}
 

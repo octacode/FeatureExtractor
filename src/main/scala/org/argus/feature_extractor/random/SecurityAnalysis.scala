@@ -1,4 +1,4 @@
-package org.argus.play.random
+package org.argus.feature_extractor.random
 
 import java.io.FileWriter
 
@@ -15,7 +15,7 @@ import org.argus.amandroid.plugin.dataInjection.IntentInjectionSourceAndSinkMana
 import org.argus.jawa.alir.taintAnalysis.TaintPath
 import org.argus.jawa.core.util._
 import org.argus.jawa.core.{MsgLevel, PrintReporter}
-import org.argus.play.cli.util.CliLogger
+import org.argus.feature_extractor.cli.util.CliLogger
 
 import scala.language.postfixOps
 import scala.concurrent.duration._

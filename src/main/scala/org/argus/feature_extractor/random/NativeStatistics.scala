@@ -1,4 +1,4 @@
-package org.argus.play.random
+package org.argus.feature_extractor.random
 
 import java.io.FileWriter
 
@@ -9,7 +9,7 @@ import org.argus.amandroid.core.decompile._
 import org.argus.amandroid.core.parser.ComponentType
 import org.argus.jawa.core._
 import org.argus.jawa.core.util._
-import org.argus.play.cli.util.CliLogger
+import org.argus.feature_extractor.cli.util.CliLogger
 import org.ini4j.Wini
 
 /**

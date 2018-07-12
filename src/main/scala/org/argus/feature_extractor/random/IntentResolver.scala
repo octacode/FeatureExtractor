@@ -1,4 +1,4 @@
-package org.argus.play.random
+package org.argus.feature_extractor.random
 
 import java.io.{File, FileWriter}
 
@@ -17,7 +17,7 @@ import org.argus.jawa.core.{DefaultReporter, Global, Signature}
 import org.argus.jawa.core.util._
 import org.argus.jawa.summary.{BottomUpSummaryGenerator, SummaryManager}
 import org.argus.jawa.summary.wu.{PTStore, PTSummary, WorkUnit}
-import org.argus.play.cli.util.CliLogger
+import org.argus.feature_extractor.cli.util.CliLogger
 
 /**
   * Resolve all intent in the app.

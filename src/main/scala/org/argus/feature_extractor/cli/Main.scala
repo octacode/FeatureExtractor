@@ -1,8 +1,8 @@
-package org.argus.play.cli
+package org.argus.feature_extractor.cli
 
 import org.apache.commons.cli._
 import org.argus.jawa.core.util._
-import org.argus.play.random.{CountComponentNum, IntentResolver, NativeStatistics, SecurityAnalysis}
+import org.argus.feature_extractor.random.{CountComponentNum, IntentResolver, NativeStatistics, SecurityAnalysis}
 
 /**
   * Created by fgwei on 3/8/17.

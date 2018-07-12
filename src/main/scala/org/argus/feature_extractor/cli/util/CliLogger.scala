@@ -8,7 +8,7 @@
  * Detailed contributors are listed in the CONTRIBUTOR.md
  */
 
-package org.argus.play.cli.util
+package org.argus.feature_extractor.cli.util
 
 import java.io.{File, FileWriter, PrintWriter}
 import java.text.SimpleDateFormat

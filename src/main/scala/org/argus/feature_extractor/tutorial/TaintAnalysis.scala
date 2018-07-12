@@ -1,4 +1,4 @@
-package org.argus.play.tutorial
+package org.argus.feature_extractor.tutorial
 
 import org.argus.amandroid.alir.componentSummary.ApkYard
 import org.argus.amandroid.alir.pta.model.AndroidModelCallHandler
