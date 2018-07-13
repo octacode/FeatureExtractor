@@ -3,6 +3,7 @@ package org.argus.feature_extractor.random
 import org.argus.amandroid.alir.componentSummary.ApkYard
 import org.argus.amandroid.core.ApkGlobal
 import org.argus.amandroid.core.decompile.{DecompileLayout, DecompileStrategy, DecompilerSettings}
+import org.argus.amandroid.core.parser.IntentFilterDataBase
 import org.argus.feature_extractor.{AllPermissions, AllReceiver}
 import org.argus.jawa.core.DefaultReporter
 import org.argus.jawa.core.util._
@@ -11,6 +12,7 @@ object MyTester {
   var apk: ApkGlobal = _
   var permMap: MLinkedMap[String, Integer] = AllPermissions.hashMap
   var recvMap: MLinkedMap[String, Integer] = AllReceiver.hashMap
+  var path: String = _
 
   def main(args: Array[String]): Unit = {
     if (args.length != 2) {
@@ -25,12 +27,11 @@ object MyTester {
     val strategy = DecompileStrategy(layout)
     val settings = DecompilerSettings(debugMode = true, forceDelete = true, strategy, reporter)
     apk = yard.loadApk(fileUri, settings, collectInfo = true, resolveCallBack = false)
-
+    path = args(1)
     val permissions = apk.model.getUsesPermissions
-    val certificates = apk.model.getCertificates
-    val services = apk.model.getServices
-    val receivers = apk.model.getReceivers
+    val receivers = apk.model.getIntentFilterDB
     modAll(permissions)(permMap)
+    modAllRecv(receivers)(recvMap)
   }
 
   def modAll(item: ISet[String])(hashMap: MLinkedMap[String, Integer]): Unit = {
@@ -38,6 +39,20 @@ object MyTester {
       hello => {
         if (hashMap.contains(hello)) {
           hashMap.put(hello, 1)
+        }
+      }
+    }
+    printMap(hashMap)
+  }
+
+  def modAllRecv(item: IntentFilterDataBase)(hashMap: MLinkedMap[String, Integer]): Unit = {
+    val map = item.getIntentFmap
+    map.foreach {
+      cray => {
+        cray._2.foreach {
+          lie => {
+            modAll(lie.getActions)(hashMap)
+          }
         }
       }
     }
