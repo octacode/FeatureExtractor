@@ -36,9 +36,8 @@ import org.argus.jawa.core.util._
 object RetriveStringFromSourceOrSink {
 
   def main(args: Array[String]): Unit = {
-    val fileUri = FileUtil.toUri(getClass.getResource("/random/ReadInternet.apk").getPath)
-    val outputUri = FileUtil.toUri(getClass.getResource("/output").getPath)
-
+    val fileUri = FileUtil.toUri(args(0))
+    val outputUri = FileUtil.toUri(args(1))
     /******************* Load APK *********************/
 
     val reporter = new DefaultReporter
@@ -66,7 +65,7 @@ object RetriveStringFromSourceOrSink {
         val iddResult = InterProceduralDataDependenceAnalysis(apk, idfg)
         val ssm = new DataLeakageAndroidSourceAndSinkManager(AndroidGlobalConfig.settings.sas_file)
         val taint_analysis_result = AndroidDataDependentTaintAnalysis(yard, iddResult, idfg.ptaresult, ssm)
-
+        //println(taint_analysis_result.getTaintedPaths.size)
         /******************* Resolve all URL value *********************/
 
         val urlMap: MMap[Context, MSet[String]] = mmapEmpty
