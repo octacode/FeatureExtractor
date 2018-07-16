@@ -14,7 +14,10 @@ import org.argus.jawa.alir.cfg.{ICFGNode, InterProceduralControlFlowGraph}
 import org.argus.jawa.alir.dda.InterProceduralDataDependenceAnalysis
 import org.argus.jawa.alir.pta.PTAResult
 import org.argus.jawa.core.util._
+import sys.process._
 import org.argus.jawa.core.{ClassLoadManager, DefaultReporter}
+
+import scala.xml.XML
 
 object MyTester {
   var apk: ApkGlobal = _
@@ -22,6 +25,8 @@ object MyTester {
   var recvMap: MLinkedMap[String, Integer] = AllReceiver.hashMap
   var path: String = _
   var outputUri: FileResourceUri = _
+  var codeUri: FileResourceUri = _
+
   def main(args: Array[String]): Unit = {
     if (args.length != 2) {
       println("usage: apk_path output_path")
@@ -35,8 +40,10 @@ object MyTester {
     val layout = DecompileLayout(outputUri)
     val strategy = DecompileStrategy(layout)
     val settings = DecompilerSettings(debugMode = true, forceDelete = true, strategy, reporter)
-    apk = yard.loadApk(fileUri, settings, collectInfo = true, resolveCallBack = true)
-
+    apk = yard.loadApk(fileUri, settings, collectInfo = true, resolveCallBack = false)
+    var name = apk.model.getAppName.replace(".apk", "")
+    codeUri = outputUri + name + "/"
+    codeUri.replace("file:", "")
     val component = apk.model.getComponents.head // get any component you want to perform analysis
     apk.model.getEnvMap.get(component) match {
       case Some((esig, _)) =>
@@ -60,21 +67,64 @@ object MyTester {
 
     val permissions = apk.model.getUsesPermissions
     val receivers = apk.model.getIntentFilterDB
+    val isNumberPresent = numberFinder()
+    checkAllFilesType()
     //modAll(permissions)(permMap)
     //modAllRecv(receivers)(recvMap)
-
-
+    //assetAnalyser()
   }
 
-  def modAll(item: ISet[String])(hashMap: MLinkedMap[String, Integer]): Unit = {
-    item.foreach {
-      hello => {
-        if (hashMap.contains(hello)) {
-          hashMap.put(hello, 1)
+  def assetAnalyser(): Unit = {
+    val so_files = FileUtil.listFiles(codeUri, ".so", recursive = true)
+    val lnk_file = FileUtil.listFiles(codeUri, ".lnk", recursive = true)
+    val exe_file = FileUtil.listFiles(codeUri, ".exe", recursive = true)
+    val zip_file = FileUtil.listFiles(codeUri, ".zip", recursive = true)
+    val tar_file = FileUtil.listFiles(codeUri, ".tar", recursive = true)
+    val rar_file = FileUtil.listFiles(codeUri, ".rar", recursive = true)
+    val sevenz_file = FileUtil.listFiles(codeUri, ".7z", recursive = true)
+    val areContacts = numberFinder()
+    val isExtension = checkAllFilesType()
+  }
+
+  // Number fetcher
+  def numberFinder(): Boolean = {
+    val xmlFiles = FileUtil.listFiles(codeUri, ext = ".xml", recursive = true)
+    xmlFiles.foreach {
+      uri => {
+        try {
+          var xml = XML.loadFile(uri.replaceAll("file:", ""))
+          var text = xml.text
+          var lengthCounter = 0
+          for (index <- 0 until text.length) {
+            if (lengthCounter > 5) return true
+            else if (Character.isDigit(text.charAt(index)))
+              lengthCounter = lengthCounter + 1
+            else
+              lengthCounter = 0
+          }
+        } catch {
+          case ex: Exception =>
         }
       }
     }
-    printMap(hashMap)
+    false
+  }
+
+  def checkAllFilesType(): Boolean = {
+    val files = FileUtil.listFiles(codeUri+"assets/", "", recursive = true)
+    files.foreach {
+      uri => {
+        val cmd = "file -z " + uri.replace("file:", "")
+        val exitCode = cmd.!
+        println(exitCode)
+      }
+    }
+    false
+  }
+
+  def checkType(fileType: String) : Boolean = {
+
+    false
   }
 
   def modAllRecv(item: IntentFilterDataBase)(hashMap: MLinkedMap[String, Integer]): Unit = {
@@ -91,6 +141,17 @@ object MyTester {
     printMap(hashMap)
   }
 
+  def modAll(item: ISet[String])(hashMap: MLinkedMap[String, Integer]): Unit = {
+    item.foreach {
+      hello => {
+        if (hashMap.contains(hello)) {
+          hashMap.put(hello, 1)
+        }
+      }
+    }
+    printMap(hashMap)
+  }
+
   def printMap(hashMap: MLinkedMap[String, Integer]): Unit = {
     var set = hashMap.keySet
     set.foreach {
@@ -98,32 +159,5 @@ object MyTester {
         println(hello + "     " + hashMap(hello))
       }
     }
-  }
-
-  def assetAnalyser(): Unit = {
-    println("Get all so.")
-    val so_files = FileUtil.listFiles(outputUri, ".so", recursive = true)
-    val lnk_file = FileUtil.listFiles(outputUri, ".lnk", recursive = true)
-    val exe_file = FileUtil.listFiles(outputUri, ".exe", recursive = true)
-    val zip_file = FileUtil.listFiles(outputUri, ".zip", recursive = true)
-    val tar_file = FileUtil.listFiles(outputUri, ".tar", recursive = true)
-    val rar_file = FileUtil.listFiles(outputUri, ".rar", recursive = true)
-    val sevenz_file = FileUtil.listFiles(outputUri, ".7z", recursive = true)
-    val areContacts = numberFinder()
-    val isExtension = checkExtension()
-  }
-
-  def numberFinder(): Boolean = {
-    val xmlFiles = FileUtil.listFiles(outputUri, ext = ".xml", recursive = true)
-    xmlFiles.foreach{
-      uri => {
-
-      }
-    }
-    false
-  }
-
-  def checkExtension() : Boolean = {
-    false
   }
 }
