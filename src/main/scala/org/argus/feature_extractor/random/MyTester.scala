@@ -14,9 +14,10 @@ import org.argus.jawa.alir.cfg.{ICFGNode, InterProceduralControlFlowGraph}
 import org.argus.jawa.alir.dda.InterProceduralDataDependenceAnalysis
 import org.argus.jawa.alir.pta.PTAResult
 import org.argus.jawa.core.util._
-import sys.process._
 import org.argus.jawa.core.{ClassLoadManager, DefaultReporter}
 
+import scala.sys.process._
+import scala.io.Source._
 import scala.xml.XML
 
 object MyTester {
@@ -111,19 +112,16 @@ object MyTester {
   }
 
   def checkAllFilesType(): Boolean = {
-    val files = FileUtil.listFiles(codeUri+"assets/", "", recursive = true)
+    val files = FileUtil.listFiles(codeUri + "assets/", "", recursive = true)
     files.foreach {
       uri => {
         val cmd = "file -z " + uri.replace("file:", "")
         val exitCode = cmd.!
-        println(exitCode)
+        //zip, rar, lsb shared object, executable
+        if (exitCode.toString.toLowerCase().contains("zip") || exitCode.toString.toLowerCase().contains("rar") || exitCode.toString.toLowerCase().contains("lsb") || exitCode.toString.toLowerCase().contains("executable"))
+          return true
       }
     }
-    false
-  }
-
-  def checkType(fileType: String) : Boolean = {
-
     false
   }
 
@@ -157,6 +155,17 @@ object MyTester {
     set.foreach {
       hello => {
         println(hello + "     " + hashMap(hello))
+      }
+    }
+  }
+
+  def checkForPayment(): Boolean = {
+    var value = codeUri + "third_party_libs.txt"
+    val lines = fromFile(codeUri.replace("file:", ""))
+    var itr = lines.getLines()
+    itr.foreach {
+      lib => {
+        if ()
       }
     }
   }
