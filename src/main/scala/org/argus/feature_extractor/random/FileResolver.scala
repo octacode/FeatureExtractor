@@ -30,7 +30,7 @@ import scala.collection.GenSet
     }
   * @author <a href="mailto:tong.zh@foxmail.com">Tong Zhu</a>
   */
-object FileResolver {
+object  FileResolver {
   class ListNode(value : Context){
     val v = value
     var head : ListNode = null

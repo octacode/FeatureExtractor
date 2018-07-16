@@ -21,7 +21,7 @@ object MyTester {
   var permMap: MLinkedMap[String, Integer] = AllPermissions.hashMap
   var recvMap: MLinkedMap[String, Integer] = AllReceiver.hashMap
   var path: String = _
-
+  var outputUri: FileResourceUri = _
   def main(args: Array[String]): Unit = {
     if (args.length != 2) {
       println("usage: apk_path output_path")
@@ -29,7 +29,7 @@ object MyTester {
     }
     path = args(1)
     val fileUri = FileUtil.toUri(args(0))
-    val outputUri = FileUtil.toUri(args(1))
+    outputUri = FileUtil.toUri(args(1))
     val reporter = new DefaultReporter
     val yard = new ApkYard(reporter)
     val layout = DecompileLayout(outputUri)
@@ -53,7 +53,7 @@ object MyTester {
         val iddResult = InterProceduralDataDependenceAnalysis(apk, idfg)
         val ssm = new DataLeakageAndroidSourceAndSinkManager(AndroidGlobalConfig.settings.sas_file)
         val taint_analysis_result = AndroidDataDependentTaintAnalysis(yard, iddResult, idfg.ptaresult, ssm)
-        
+
       case None =>
         yard.reporter.error("TaintAnalysis", "Component " + component + " did not have environment! Some package or name mismatch maybe in the Manifest file.")
     }
@@ -101,14 +101,29 @@ object MyTester {
   }
 
   def assetAnalyser(): Unit = {
-
+    println("Get all so.")
+    val so_files = FileUtil.listFiles(outputUri, ".so", recursive = true)
+    val lnk_file = FileUtil.listFiles(outputUri, ".lnk", recursive = true)
+    val exe_file = FileUtil.listFiles(outputUri, ".exe", recursive = true)
+    val zip_file = FileUtil.listFiles(outputUri, ".zip", recursive = true)
+    val tar_file = FileUtil.listFiles(outputUri, ".tar", recursive = true)
+    val rar_file = FileUtil.listFiles(outputUri, ".rar", recursive = true)
+    val sevenz_file = FileUtil.listFiles(outputUri, ".7z", recursive = true)
+    val areContacts = numberFinder()
+    val isExtension = checkExtension()
   }
 
-  def lookForExtension(): Unit = {
+  def numberFinder(): Boolean = {
+    val xmlFiles = FileUtil.listFiles(outputUri, ext = ".xml", recursive = true)
+    xmlFiles.foreach{
+      uri => {
 
+      }
+    }
+    false
   }
 
-  def areTrueExtension(): Unit = {
-
+  def checkExtension() : Boolean = {
+    false
   }
 }
