@@ -8,7 +8,7 @@ import org.argus.amandroid.alir.taintAnalysis.{AndroidDataDependentTaintAnalysis
 import org.argus.amandroid.core.decompile.{DecompileLayout, DecompileStrategy, DecompilerSettings}
 import org.argus.amandroid.core.parser.IntentFilterDataBase
 import org.argus.amandroid.core.{AndroidGlobalConfig, ApkGlobal}
-import org.argus.feature_extractor.{AllPermissions, AllReceiver, Libs}
+import org.argus.feature_extractor.{AllPermissions, AllReceiver, DangerousCalls, Libs}
 import org.argus.jawa.alir.Context
 import org.argus.jawa.alir.cfg.{ICFGNode, InterProceduralControlFlowGraph}
 import org.argus.jawa.alir.dda.InterProceduralDataDependenceAnalysis
@@ -24,6 +24,7 @@ object MyTester {
   var apk: ApkGlobal = _
   var permMap: MLinkedMap[String, Integer] = AllPermissions.hashMap
   var recvMap: MLinkedMap[String, Integer] = AllReceiver.hashMap
+  var dangerApis : MLinkedMap[String, Integer] = DangerousCalls.hashMap
   var dangerousList: List[String] = Libs.harmfulLibs
   var paymentsList: List[String] = Libs.paymentLibs
   var path: String = _
@@ -43,11 +44,12 @@ object MyTester {
     val layout = DecompileLayout(outputUri)
     val strategy = DecompileStrategy(layout)
     val settings = DecompilerSettings(debugMode = true, forceDelete = true, strategy, reporter)
-    apk = yard.loadApk(fileUri, settings, collectInfo = true, resolveCallBack = false)
+    apk = yard.loadApk(fileUri, settings, collectInfo = true, resolveCallBack = true)
     var name = apk.model.getAppName.replace(".apk", "")
     codeUri = outputUri + name + "/"
     codeUri.replace("file:", "")
     val component = apk.model.getComponents.head // get any component you want to perform analysis
+
     apk.model.getEnvMap.get(component) match {
       case Some((esig, _)) =>
         val ep = apk.getMethod(esig).get
@@ -63,19 +65,24 @@ object MyTester {
         val iddResult = InterProceduralDataDependenceAnalysis(apk, idfg)
         val ssm = new DataLeakageAndroidSourceAndSinkManager(AndroidGlobalConfig.settings.sas_file)
         val taint_analysis_result = AndroidDataDependentTaintAnalysis(yard, iddResult, idfg.ptaresult, ssm)
-
+        taint_analysis_result.getTaintedPaths.foreach {
+          path => {
+            path.getTypes.foreach {
+              string=>println(string)
+            }
+          }
+        }
       case None =>
-        yard.reporter.error("TaintAnalysis", "Component " + component + " did not have environment! Some package or name mismatch maybe in the Manifest file.")
     }
 
-    val permissions = apk.model.getUsesPermissions
-    val receivers = apk.model.getIntentFilterDB
-    val isNumberPresent = numberFinder()
-    checkAllFilesType()
-    println(checkForPayment())
-    //modAll(permissions)(permMap)
-    //modAllRecv(receivers)(recvMap)
-    //assetAnalyser()
+//    val permissions = apk.model.getUsesPermissions
+//    val receivers = apk.model.getIntentFilterDB
+//    val isNumberPresent = numberFinder()
+//    checkAllFilesType()
+//    println(checkForPayment())
+//    modAll(permissions)(permMap)
+//    modAllRecv(receivers)(recvMap)
+//    assetAnalyser()
   }
 
   def assetAnalyser(): Unit = {
