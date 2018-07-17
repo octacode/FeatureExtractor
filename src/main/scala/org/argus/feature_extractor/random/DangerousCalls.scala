@@ -9,6 +9,8 @@ package object DangerousCalls {
     ("Landroid/webkit/WebChromeClient$CustomViewCallback;", 0),
     ("Landroid/app/Notification;-><init>()V", 0),
     ("Ldalvik/system/DexClassLoader", 0),
+    ("Landroid/os/Handler;->obtainMessage:()Landroid/os/Message;", 0),
+    ("Landroid/os/Handler;->sendMessage:(Landroid/os/Message;)Z", 0),
     ("Landroid/app/Notification;->icon:I", 0),
     ("Landroid/widget/ImageButton;->setBackgroundColor(I)V", 0),
     ("Landroid/widget/RelativeLayout;->addView(Landroid/view/View;ILandroid/view/ViewGroup$LayoutParams;)V", 0),

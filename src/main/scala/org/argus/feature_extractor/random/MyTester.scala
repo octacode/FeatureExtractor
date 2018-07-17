@@ -16,20 +16,21 @@ import org.argus.jawa.alir.pta.PTAResult
 import org.argus.jawa.core.util._
 import org.argus.jawa.core.{ClassLoadManager, DefaultReporter}
 
-import scala.sys.process._
+import scala.collection.mutable
 import scala.io.Source._
+import scala.sys.process._
 import scala.xml.XML
 
 object MyTester {
   var apk: ApkGlobal = _
   var permMap: MLinkedMap[String, Integer] = AllPermissions.hashMap
   var recvMap: MLinkedMap[String, Integer] = AllReceiver.hashMap
-  var dangerApis : MLinkedMap[String, Integer] = DangerousCalls.hashMap
+  var dangerApis: MLinkedMap[String, Integer] = DangerousCalls.hashMap
   var dangerousList: List[String] = Libs.harmfulLibs
   var paymentsList: List[String] = Libs.paymentLibs
   var path: String = _
-  var outputUri: FileResourceUri = _
   var codeUri: FileResourceUri = _
+  var allCalls: MLinkedMap[String, Integer] = mutable.LinkedHashMap()
 
   def main(args: Array[String]): Unit = {
     if (args.length != 2) {
@@ -38,7 +39,7 @@ object MyTester {
     }
     path = args(1)
     val fileUri = FileUtil.toUri(args(0))
-    outputUri = FileUtil.toUri(args(1))
+    var outputUri = FileUtil.toUri(args(1))
     val reporter = new DefaultReporter
     val yard = new ApkYard(reporter)
     val layout = DecompileLayout(outputUri)
@@ -67,22 +68,85 @@ object MyTester {
         val taint_analysis_result = AndroidDataDependentTaintAnalysis(yard, iddResult, idfg.ptaresult, ssm)
         taint_analysis_result.getTaintedPaths.foreach {
           path => {
-            path.getTypes.foreach {
-              string=>println(string)
-            }
+            allCalls.put(path.getSink.descriptor.desc.replace(";.", ";->").replace(":(", "("), 0)
+            allCalls.put(path.getSource.descriptor.desc.replace(";.", ";->").replace(":(", "("), 0)
           }
         }
       case None =>
     }
 
-//    val permissions = apk.model.getUsesPermissions
-//    val receivers = apk.model.getIntentFilterDB
-//    val isNumberPresent = numberFinder()
-//    checkAllFilesType()
-//    println(checkForPayment())
-//    modAll(permissions)(permMap)
-//    modAllRecv(receivers)(recvMap)
-//    assetAnalyser()
+    //    val permissions = apk.model.getUsesPermissions
+    //    val receivers = apk.model.getIntentFilterDB
+    //    val isNumberPresent = numberFinder()
+    //    checkAllFilesType()
+    //    println(checkForPayment())
+    //    modAll(permissions)(permMap)
+    //    modAllRecv(receivers)(recvMap)
+    //    assetAnalyser()
+    //    modDangerousCall(allCalls)(dangerApis)
+  }
+
+  def modDangerousCall(item: MLinkedMap[String, Integer])(hashMap: MLinkedMap[String, Integer]): Unit = {
+    item.foreach {
+      hello => {
+        hashMap.foreach {
+          set => {
+            var matchRatio = similarity(hello._1, set._1)
+            if (matchRatio > 0.8)
+              hashMap.put(set._1, 1)
+          }
+        }
+      }
+    }
+    printMap(hashMap)
+  }
+
+  //Percentage match
+  def similarity(s1: String, s2: String): Double = {
+    var longer = s1
+    var shorter = s2
+    if (s1.length < s2.length) { // longer should always have greater length
+      longer = s2
+      shorter = s1
+    }
+    val longerLength = longer.length
+    if (longerLength == 0) return 1.0 /* both strings are zero length */
+    (longerLength - editDistance(longer.toLowerCase, shorter.toLowerCase)) / longerLength.toDouble
+  }
+
+  //Levenshtein Edit Distance
+  def editDistance(s1: String, s2: String): Int = {
+    val costs = new Array[Int](s2.length + 1)
+    var i = 0
+    while ( {
+      i <= s1.length
+    }) {
+      var lastValue = i
+      var j = 0
+      while ( {
+        j <= s2.length
+      }) {
+        if (i == 0) costs(j) = j
+        else if (j > 0) {
+          var newValue = costs(j - 1)
+          if (s1.charAt(i - 1) != s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs(j)) + 1
+          costs(j - 1) = lastValue
+          lastValue = newValue
+        }
+
+        {
+          j += 1
+          j - 1
+        }
+      }
+      if (i > 0) costs(s2.length) = lastValue
+
+      {
+        i += 1
+        i - 1
+      }
+    }
+    costs(s2.length)
   }
 
   def assetAnalyser(): Unit = {
