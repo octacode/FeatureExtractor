@@ -21,7 +21,7 @@ import scala.io.Source._
 import scala.sys.process._
 import scala.xml.XML
 
-object MyTester {
+object FeatureExtractor {
   var apk: ApkGlobal = _
   var permMap: MLinkedMap[String, Integer] = AllPermissions.hashMap
   var recvMap: MLinkedMap[String, Integer] = AllReceiver.hashMap
