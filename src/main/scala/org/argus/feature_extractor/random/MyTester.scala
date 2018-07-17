@@ -8,7 +8,7 @@ import org.argus.amandroid.alir.taintAnalysis.{AndroidDataDependentTaintAnalysis
 import org.argus.amandroid.core.decompile.{DecompileLayout, DecompileStrategy, DecompilerSettings}
 import org.argus.amandroid.core.parser.IntentFilterDataBase
 import org.argus.amandroid.core.{AndroidGlobalConfig, ApkGlobal}
-import org.argus.feature_extractor.{AllPermissions, AllReceiver}
+import org.argus.feature_extractor.{AllPermissions, AllReceiver, Libs}
 import org.argus.jawa.alir.Context
 import org.argus.jawa.alir.cfg.{ICFGNode, InterProceduralControlFlowGraph}
 import org.argus.jawa.alir.dda.InterProceduralDataDependenceAnalysis
@@ -24,6 +24,8 @@ object MyTester {
   var apk: ApkGlobal = _
   var permMap: MLinkedMap[String, Integer] = AllPermissions.hashMap
   var recvMap: MLinkedMap[String, Integer] = AllReceiver.hashMap
+  var dangerousList: List[String] = Libs.harmfulLibs
+  var paymentsList: List[String] = Libs.paymentLibs
   var path: String = _
   var outputUri: FileResourceUri = _
   var codeUri: FileResourceUri = _
@@ -70,6 +72,7 @@ object MyTester {
     val receivers = apk.model.getIntentFilterDB
     val isNumberPresent = numberFinder()
     checkAllFilesType()
+    println(checkForPayment())
     //modAll(permissions)(permMap)
     //modAllRecv(receivers)(recvMap)
     //assetAnalyser()
@@ -161,12 +164,27 @@ object MyTester {
 
   def checkForPayment(): Boolean = {
     var value = codeUri + "third_party_libs.txt"
-    val lines = fromFile(codeUri.replace("file:", ""))
+    val lines = fromFile(value.replace("file:", ""))
     var itr = lines.getLines()
     itr.foreach {
       lib => {
-        if ()
+        if (paymentsList.contains(lib.toLowerCase()))
+          return true
       }
     }
+    false
+  }
+
+  def checkForDangerousLibs(): Boolean = {
+    var value = codeUri + "third_party_libs.txt"
+    val lines = fromFile(value.replace("file:", ""))
+    var itr = lines.getLines()
+    itr.foreach {
+      lib => {
+        if (dangerousList.contains(lib.toLowerCase()))
+          return true
+      }
+    }
+    false
   }
 }
