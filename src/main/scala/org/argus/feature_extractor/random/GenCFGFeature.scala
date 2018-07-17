@@ -1,7 +1,10 @@
 package org.argus.feature_extractor.random
 
+import java.io.PrintWriter
+
 import org.argus.amandroid.alir.componentSummary.ApkYard
 import org.argus.amandroid.core.decompile.{DecompileLayout, DecompileStrategy, DecompilerSettings}
+import org.argus.jawa.alir.JawaAlirInfoProvider
 import org.argus.jawa.core.DefaultReporter
 import org.argus.jawa.core.util._
 
@@ -22,13 +25,13 @@ object GenCFGFeature {
     // apk is the apk meta data manager, class loader and class manager
     val apk = yard.loadApk(fileUri, settings, collectInfo = false, resolveCallBack = false)
 
-    //    val allMethods = apk.getApplicationClasses.map(c => c.getDeclaredMethods).reduce(_ ++ _)
-    //    allMethods.foreach { m =>
-    //      println(m.getSignature)
-    //      println(m.retrieveCode)
-    //      val cfg = JawaAlirInfoProvider.getCfg(m)
-    //      cfg.toDot(new PrintWriter(System.out))
-    //    }
+    val allMethods = apk.getApplicationClasses.map(c => c.getDeclaredMethods).reduce(_ ++ _)
+    allMethods.foreach { m =>
+      println(m.getSignature)
+      println(m.retrieveCode)
+      val cfg = JawaAlirInfoProvider.getCfg(m)
+      cfg.toDot(new PrintWriter(System.out))
+    }
 
     val activities = apk.model.getActivities
     val permissions = apk.model.getUsesPermissions

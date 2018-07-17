@@ -1,5 +1,7 @@
 package org.argus.feature_extractor.random
 
+import java.io.PrintWriter
+
 import org.argus.amandroid.alir.componentSummary.ApkYard
 import org.argus.amandroid.alir.pta.model.AndroidModelCallHandler
 import org.argus.amandroid.alir.pta.reachingFactsAnalysis.{AndroidReachingFactsAnalysis, AndroidReachingFactsAnalysisConfig}
@@ -9,7 +11,7 @@ import org.argus.amandroid.core.decompile.{DecompileLayout, DecompileStrategy, D
 import org.argus.amandroid.core.parser.IntentFilterDataBase
 import org.argus.amandroid.core.{AndroidGlobalConfig, ApkGlobal}
 import org.argus.feature_extractor.{AllPermissions, AllReceiver, DangerousCalls, Libs}
-import org.argus.jawa.alir.Context
+import org.argus.jawa.alir.{Context, JawaAlirInfoProvider}
 import org.argus.jawa.alir.cfg.{ICFGNode, InterProceduralControlFlowGraph}
 import org.argus.jawa.alir.dda.InterProceduralDataDependenceAnalysis
 import org.argus.jawa.alir.pta.PTAResult
@@ -28,7 +30,6 @@ object FeatureExtractor {
   var dangerApis: MLinkedMap[String, Integer] = DangerousCalls.hashMap
   var dangerousList: List[String] = Libs.harmfulLibs
   var paymentsList: List[String] = Libs.paymentLibs
-  var path: String = _
   var codeUri: FileResourceUri = _
   var allCalls: MLinkedMap[String, Integer] = mutable.LinkedHashMap()
 
@@ -37,8 +38,7 @@ object FeatureExtractor {
       println("usage: apk_path output_path")
       return
     }
-    path = args(1)
-    val fileUri = FileUtil.toUri(args(0))
+    val fileUri = FileUtil.toUri("/home/shasha/Forked_Repo/NotificationHelper/app/build/outputs/apk/debug/app-debug.apk")
     var outputUri = FileUtil.toUri(args(1))
     val reporter = new DefaultReporter
     val yard = new ApkYard(reporter)
@@ -75,6 +75,15 @@ object FeatureExtractor {
       case None =>
     }
 
+    // METHODWISE CODE ANALYSIS
+    val allMethods = apk.getApplicationClasses.map(c => c.getDeclaredMethods).reduce(_ ++ _)
+    allMethods.foreach { m =>
+      println(m.retrieveCode.toString)
+      println("isCheckingForEmulator: "+checkForEmulator(m.retrieveCode.toString))
+      println("isCheckingInstalledApplications: "+isCheckingInstalledApplications(m.retrieveCode.toString))
+      println("isTryingToHide: "+isTryingToHide(m.retrieveCode.toString))
+    }
+
     //    val permissions = apk.model.getUsesPermissions
     //    val receivers = apk.model.getIntentFilterDB
     //    val isNumberPresent = numberFinder()
@@ -83,12 +92,13 @@ object FeatureExtractor {
     //    modAll(permissions)(permMap)
     //    modAllRecv(receivers)(recvMap)
     //    assetAnalyser()
-    //    modDangerousCall(allCalls)(dangerApis)
+     //   modDangerousCall(allCalls)(dangerApis)
   }
 
   def modDangerousCall(item: MLinkedMap[String, Integer])(hashMap: MLinkedMap[String, Integer]): Unit = {
     item.foreach {
       hello => {
+        println(hello)
         hashMap.foreach {
           set => {
             var matchRatio = similarity(hello._1, set._1)
@@ -98,7 +108,7 @@ object FeatureExtractor {
         }
       }
     }
-    printMap(hashMap)
+    //printMap(hashMap)
   }
 
   //Percentage match
@@ -256,6 +266,44 @@ object FeatureExtractor {
           return true
       }
     }
+    false
+  }
+
+  def checkForEmulator(code: String): Boolean = {
+    //Check for emulator
+    if (code.contains("android.os.Build.FINGERPRINT") && code.contains("startsWith") && code.contains("generic")){
+      println(1)
+      true
+    }
+    else if (code.contains("android.os.Build.FINGERPRINT") && code.contains("android.os.Build.FINGERPRINT") && code.contains("unknown"))
+      true
+    else if (code.contains("android.os.Build.MODEL") && code.contains("contains") && code.contains("google_sdk"))
+      true
+    else if (code.contains("android.os.Build.MODEL") && code.contains("contains") && code.contains("Emulator"))
+      true
+    else if (code.contains("android.os.Build.MODEL") && code.contains("contains") && code.contains("Android SDK built for x86"))
+      true
+    else if (code.contains("android.os.Build.MANUFACTURER") && code.contains("contains") && code.contains("Genymotion"))
+      true
+    else if (code.contains("android.os.Build.BRAND") && code.contains("generic") && code.contains("startsWith") && code.contains("android.os.Build.DEVICE"))
+      true
+    else if (code.contains("android.os.Build.PRODUCT") && code.contains("google_sdk") && code.contains("android.os.Build.PRODUCT"))
+      true
+    else
+      false
+  }
+
+  def isCheckingInstalledApplications(code: String) : Boolean = {
+    if (code.contains("getPackageManager") && code.contains("getInstalledApplications"))
+      true
+    else if (code.contains("getPackageManager") && code.contains("queryIntentActivities"))
+      true
+    false
+  }
+
+  def isTryingToHide (code: String) : Boolean = {
+    if (code.contains("getPackageManager") && code.contains("android.content.ComponentName") && code.contains("setComponentEnabledSetting"))
+      true
     false
   }
 }
