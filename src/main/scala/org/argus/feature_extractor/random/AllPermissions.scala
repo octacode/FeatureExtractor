@@ -357,6 +357,8 @@ package object AllPermissions {
     ("android.permission.WRITE_SMS",0),
     ("android.permission.WRITE_SOCIAL_STREAM",0),
     ("android.permission.WRITE_SYNC_SETTINGS",0),
-    ("android.permission.WRITE_USER_DICTIONARY",0)
+    ("android.permission.WRITE_USER_DICTIONARY",0),
+    ("com.android.launcher.permission.INSTALL_SHORTCUT", 0),
+    ("com.android.launcher.permission.UNINSTALL_SHORTCUT", 0)
   )
 }
