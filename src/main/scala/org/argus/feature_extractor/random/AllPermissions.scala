@@ -339,6 +339,8 @@ package object AllPermissions {
     ("android.permission.TV_INPUT_HARDWARE",0),
     ("android.permission.TV_VIRTUAL_REMOTE_CONTROLLER",0),
     ("android.permission.UPDATE_APP_OPS_STATS",0),
+    ("android.permission.ACTION_MANAGE_OVERLAY_PERMISSION", 0),
+    ("android.permission.SYSTEM_ALERT_WINDOW", 0),
     ("android.permission.UPDATE_CONFIG",0),
     ("android.permission.UPDATE_DEVICE_STATS",0),
     ("android.permission.UPDATE_LOCK",0),
