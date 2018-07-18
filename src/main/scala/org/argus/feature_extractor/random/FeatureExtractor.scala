@@ -51,7 +51,7 @@ object FeatureExtractor {
     codeUri = outputUri + name + "/"
     codeUri.replace("file:", "")
     val component = apk.model.getComponents.head // get any component you want to perform analysis
-
+    println(permMap.toString)
     apk.model.getEnvMap.get(component) match {
       case Some((esig, _)) =>
         val ep = apk.getMethod(esig).get
@@ -76,6 +76,17 @@ object FeatureExtractor {
       case None =>
     }
 
+    val permissions = apk.model.getUsesPermissions
+    val receivers = apk.model.getIntentFilterDB
+    val isNumberPresent = numberFinder()
+    val isPaymentSDKPresent = checkForPayment()
+
+    modAll(permissions)(permMap)
+    modAllRecv(receivers)(recvMap)
+    assetAnalyser()
+    
+    modDangerousCall(allCalls)(dangerApis)
+
     // METHODWISE CODE ANALYSIS
     val allMethods = apk.getApplicationClasses.map(c => c.getDeclaredMethods).reduce(_ ++ _)
     allMethods.foreach { m =>
@@ -85,18 +96,8 @@ object FeatureExtractor {
       //      println("isCheckingInstalledApplications: " + isCheckingInstalledApplications(code))
       //      println("isTryingToHide: " + isTryingToHide(code))
       //      println("isDeletingMessages: " + isDeletingMessages(code))
-      println("isURLAnIP: " + isUrlAnIpAddress(code))
+      //      println("isURLAnIP: " + isUrlAnIpAddress(code))
     }
-
-    //    val permissions = apk.model.getUsesPermissions
-    //    val receivers = apk.model.getIntentFilterDB
-    //    val isNumberPresent = numberFinder()
-    //    checkAllFilesType()
-    //    println(checkForPayment())
-    //    modAll(permissions)(permMap)
-    //    modAllRecv(receivers)(recvMap)
-    //    assetAnalyser()
-    //   modDangerousCall(allCalls)(dangerApis)
   }
 
   def isUrlAnIpAddress(code: String): Boolean = {
