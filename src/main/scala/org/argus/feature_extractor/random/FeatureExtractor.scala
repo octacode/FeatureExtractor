@@ -1,6 +1,7 @@
 package org.argus.feature_extractor.random
 
-import java.io.{File, PrintWriter}
+import java.io.File
+import java.io.PrintWriter
 import java.util.regex.Pattern
 
 import org.argus.amandroid.alir.componentSummary.ApkYard
@@ -300,7 +301,7 @@ object FeatureExtractor {
         }
       }
     } catch {
-        case e: Exception =>
+      case e: Exception =>
     }
     false
   }
@@ -324,15 +325,6 @@ object FeatureExtractor {
         if (hashMap.contains(hello)) {
           hashMap.put(hello, 1)
         }
-      }
-    }
-  }
-
-  def printMap(hashMap: MLinkedMap[String, Integer]): Unit = {
-    var set = hashMap.keySet
-    set.foreach {
-      hello => {
-        println(hello + "     " + hashMap(hello))
       }
     }
   }
@@ -402,11 +394,20 @@ object FeatureExtractor {
 
   def mapSummer(): Unit = {
     var fullFeatures = permMap ++ recvMap ++ dangerApis ++ allAssets ++ allFeatures
-    val pw = new PrintWriter(new File("home/shasha/FeatureExtractor"+apk.model.getAppName+".txt"))
+    val writer = new PrintWriter("/home/shasha/FeatureExtarctorOutput/" + apk.model.getAppName.replace(".apk", "") + ".txt", "UTF-8")
     fullFeatures.foreach {
       set =>
-        pw.write(set.toString())
+        writer.write(set.toString()+"\n")
     }
-    pw.close()
+    writer.close()
+  }
+
+  def printMap(hashMap: MLinkedMap[String, Integer]): Unit = {
+    var set = hashMap.keySet
+    set.foreach {
+      hello => {
+        println(hello + "     " + hashMap(hello))
+      }
+    }
   }
 }
