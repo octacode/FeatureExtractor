@@ -41,105 +41,109 @@ object FeatureExtractor {
 
   @throws(classOf[Exception])
   def main(args: Array[String]): Unit = {
-    paths.foreach {
-      uri => {
-        //REFRESH THE MAPS
-        permMap = AllPermissions.hashMap
-        recvMap = AllReceiver.hashMap
-        dangerApis = DangerousCalls.hashMap
-        allCalls = mutable.LinkedHashMap()
-        allAssets = AllAssets.hashMap
-        allFeatures = AllCustomFeatures.hashMap
+    try {
+      paths.foreach {
+        uri => {
+          //REFRESH THE MAPS
+          permMap = AllPermissions.hashMap
+          recvMap = AllReceiver.hashMap
+          dangerApis = DangerousCalls.hashMap
+          allCalls = mutable.LinkedHashMap()
+          allAssets = AllAssets.hashMap
+          allFeatures = AllCustomFeatures.hashMap
 
-        val fileUri = FileUtil.toUri("/home/shasha/100Dataset/" + uri)
-        outputUri = FileUtil.toUri(args(1))
-        val reporter = new DefaultReporter
-        val yard = new ApkYard(reporter)
-        val layout = DecompileLayout(outputUri)
-        val strategy = DecompileStrategy(layout)
-        val settings = DecompilerSettings(debugMode = true, forceDelete = true, strategy, reporter)
-        apk = yard.loadApk(fileUri, settings, collectInfo = true, resolveCallBack = true)
-        var name = apk.model.getAppName.replace(".apk", "")
-        codeUri = outputUri + name + "/"
-        codeUri.replace("file:", "")
-        val components = apk.model.getComponents
-        components.foreach {
-          component => {
-            apk.model.getEnvMap.get(component) match {
-              case Some((esig, _)) =>
-                try {
-                  val ep = apk.getMethod(esig).get
-                  val initialfacts = AndroidReachingFactsAnalysisConfig.getInitialFactsForMainEnvironment(ep)
-                  val icfg = new InterProceduralControlFlowGraph[ICFGNode]
-                  val ptaresult = new PTAResult
-                  val sp = new AndroidSummaryProvider(apk)
-                  val analysis = new AndroidReachingFactsAnalysis(
-                    apk, icfg, ptaresult, new AndroidModelCallHandler, sp.getSummaryManager, new ClassLoadManager,
-                    AndroidReachingFactsAnalysisConfig.resolve_static_init,
-                    timeout = None)
-                  val idfg = analysis.build(ep, initialfacts, new Context(apk.nameUri))
-                  val iddResult = InterProceduralDataDependenceAnalysis(apk, idfg)
-                  val ssm = new DataLeakageAndroidSourceAndSinkManager(AndroidGlobalConfig.settings.sas_file)
-                  val taint_analysis_result = AndroidDataDependentTaintAnalysis(yard, iddResult, idfg.ptaresult, ssm)
-                  taint_analysis_result.getTaintedPaths.foreach {
-                    path => {
-                      allCalls.put(path.getSink.descriptor.desc.replace(";.", ";->").replace(":(", "("), 0)
-                      allCalls.put(path.getSource.descriptor.desc.replace(";.", ";->").replace(":(", "("), 0)
+          val fileUri = FileUtil.toUri("/home/shasha/100Dataset/" + uri)
+          outputUri = FileUtil.toUri(args(1))
+          val reporter = new DefaultReporter
+          val yard = new ApkYard(reporter)
+          val layout = DecompileLayout(outputUri)
+          val strategy = DecompileStrategy(layout)
+          val settings = DecompilerSettings(debugMode = true, forceDelete = true, strategy, reporter)
+          apk = yard.loadApk(fileUri, settings, collectInfo = true, resolveCallBack = true)
+          var name = apk.model.getAppName.replace(".apk", "")
+          codeUri = outputUri + name + "/"
+          codeUri.replace("file:", "")
+          val components = apk.model.getComponents
+          components.foreach {
+            component => {
+              apk.model.getEnvMap.get(component) match {
+                case Some((esig, _)) =>
+                  try {
+                    val ep = apk.getMethod(esig).get
+                    val initialfacts = AndroidReachingFactsAnalysisConfig.getInitialFactsForMainEnvironment(ep)
+                    val icfg = new InterProceduralControlFlowGraph[ICFGNode]
+                    val ptaresult = new PTAResult
+                    val sp = new AndroidSummaryProvider(apk)
+                    val analysis = new AndroidReachingFactsAnalysis(
+                      apk, icfg, ptaresult, new AndroidModelCallHandler, sp.getSummaryManager, new ClassLoadManager,
+                      AndroidReachingFactsAnalysisConfig.resolve_static_init,
+                      timeout = None)
+                    val idfg = analysis.build(ep, initialfacts, new Context(apk.nameUri))
+                    val iddResult = InterProceduralDataDependenceAnalysis(apk, idfg)
+                    val ssm = new DataLeakageAndroidSourceAndSinkManager(AndroidGlobalConfig.settings.sas_file)
+                    val taint_analysis_result = AndroidDataDependentTaintAnalysis(yard, iddResult, idfg.ptaresult, ssm)
+                    taint_analysis_result.getTaintedPaths.foreach {
+                      path => {
+                        allCalls.put(path.getSink.descriptor.desc.replace(";.", ";->").replace(":(", "("), 0)
+                        allCalls.put(path.getSource.descriptor.desc.replace(";.", ";->").replace(":(", "("), 0)
+                      }
                     }
+                  } catch {
+                    case e: Exception =>
                   }
-                } catch {
-                  case e: Exception =>
-                }
-              case None =>
+                case None =>
+              }
             }
           }
+
+          val permissions = apk.model.getUsesPermissions
+          val receivers = apk.model.getIntentFilterDB
+
+          modAll(permissions)(permMap)
+          modAllRecv(receivers)(recvMap)
+          assetAnalyser()
+          modDangerousCall(allCalls)(dangerApis)
+
+          setCustomFeatures()
+          /* METHOD_WISE CODE ANALYSIS */
+
+          var isCheckingForEmulator = false
+          var isCheckingInstalledApplications = false
+          var isTryingToHide = false
+          var isDeletinMessages = false
+          var isURLAnIP = false
+
+          val allMethods = apk.getApplicationClasses.map(c => c.getDeclaredMethods).reduce(_ ++ _)
+          allMethods.foreach { m =>
+            val code = m.retrieveCode.toString
+            if (!isCheckingForEmulator)
+              isCheckingForEmulator = checkForEmulator(code)
+            if (!isCheckingInstalledApplications)
+              isCheckingInstalledApplications = checkInstalledApplications(code)
+            if (!isTryingToHide)
+              isTryingToHide = checkHide(code)
+            if (!isURLAnIP)
+              isURLAnIP = checkURLForIp(code)
+            if (!isDeletinMessages)
+              isDeletinMessages = isDeletingMessages(code)
+          }
+
+          if (isCheckingForEmulator)
+            allAssets.put("isCheckingForEmulator", 1)
+          if (isCheckingInstalledApplications)
+            allAssets.put("isCheckingForInstalledApplications", 1)
+          if (isTryingToHide)
+            allAssets.put("isTryingToHide", 1)
+          if (isURLAnIP)
+            allAssets.put("isDeletingMessages", 1)
+          if (isDeletinMessages)
+            allAssets.put("isURLAnIp", 1)
+
+          mapSummer()
         }
-
-        val permissions = apk.model.getUsesPermissions
-        val receivers = apk.model.getIntentFilterDB
-
-        modAll(permissions)(permMap)
-        modAllRecv(receivers)(recvMap)
-        assetAnalyser()
-        modDangerousCall(allCalls)(dangerApis)
-
-        setCustomFeatures()
-        /* METHOD_WISE CODE ANALYSIS */
-
-        var isCheckingForEmulator = false
-        var isCheckingInstalledApplications = false
-        var isTryingToHide = false
-        var isDeletinMessages = false
-        var isURLAnIP = false
-
-        val allMethods = apk.getApplicationClasses.map(c => c.getDeclaredMethods).reduce(_ ++ _)
-        allMethods.foreach { m =>
-          val code = m.retrieveCode.toString
-          if (!isCheckingForEmulator)
-            isCheckingForEmulator = checkForEmulator(code)
-          if (!isCheckingInstalledApplications)
-            isCheckingInstalledApplications = checkInstalledApplications(code)
-          if (!isTryingToHide)
-            isTryingToHide = checkHide(code)
-          if (!isURLAnIP)
-            isURLAnIP = checkURLForIp(code)
-          if (!isDeletinMessages)
-            isDeletinMessages = isDeletingMessages(code)
-        }
-
-        if (isCheckingForEmulator)
-          allAssets.put("isCheckingForEmulator", 1)
-        if (isCheckingInstalledApplications)
-          allAssets.put("isCheckingForInstalledApplications", 1)
-        if (isTryingToHide)
-          allAssets.put("isTryingToHide", 1)
-        if (isURLAnIP)
-          allAssets.put("isDeletingMessages", 1)
-        if (isDeletinMessages)
-          allAssets.put("isURLAnIp", 1)
-
-        mapSummer()
       }
+    } catch {
+      case e:Exception =>
     }
   }
 
@@ -251,31 +255,6 @@ object FeatureExtractor {
     false
   }
 
-  // Number fetcher
-  @throws(classOf[Exception])
-  def numberFinder(): Boolean = {
-    val xmlFiles = FileUtil.listFiles(codeUri, ext = ".xml", recursive = true)
-    xmlFiles.foreach {
-      uri => {
-        try {
-          var xml = XML.loadFile(uri.replaceAll("file:", ""))
-          var text = xml.text
-          var lengthCounter = 0
-          for (index <- 0 until text.length) {
-            if (lengthCounter > 5) return true
-            else if (Character.isDigit(text.charAt(index)))
-              lengthCounter = lengthCounter + 1
-            else
-              lengthCounter = 0
-          }
-        } catch {
-          case ex: Exception =>
-        }
-      }
-    }
-    false
-  }
-
   @throws(classOf[Exception])
   def assetAnalyser(): Unit = {
     val so_files = FileUtil.listFiles(codeUri, ".so", recursive = true)
@@ -311,6 +290,31 @@ object FeatureExtractor {
 
     if (checkAllFilesType())
       allAssets.put("fakeExtension", 1)
+  }
+
+  // Number fetcher
+  @throws(classOf[Exception])
+  def numberFinder(): Boolean = {
+    val xmlFiles = FileUtil.listFiles(codeUri, ext = ".xml", recursive = true)
+    xmlFiles.foreach {
+      uri => {
+        try {
+          var xml = XML.loadFile(uri.replaceAll("file:", ""))
+          var text = xml.text
+          var lengthCounter = 0
+          for (index <- 0 until text.length) {
+            if (lengthCounter > 5) return true
+            else if (Character.isDigit(text.charAt(index)))
+              lengthCounter = lengthCounter + 1
+            else
+              lengthCounter = 0
+          }
+        } catch {
+          case ex: Exception =>
+        }
+      }
+    }
+    false
   }
 
   @throws(classOf[Exception])
@@ -434,7 +438,7 @@ object FeatureExtractor {
         writer.write(set.toString() + "\n")
     }
     writer.close()
-    var code = "rm -rf "+codeUri.replace("file:", "")
+    var code = "rm -rf " + codeUri.replace("file:", "")
     code.!
   }
 
