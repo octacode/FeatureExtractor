@@ -26,6 +26,7 @@ import scala.sys.process._
 import scala.xml.XML
 
 object FeatureExtractor {
+  val paths: List[String] = Paths.uris
   private val urlPattern = Pattern.compile("(?:^|[\\W])((ht|f)tp(s?):\\/\\/|www\\.)" + "(([\\w\\-]+\\.){1,}?([\\w\\-.~]+\\/?)*" + "[\\p{Alnum}.,%_=?&#\\-+()\\[\\]\\*$~@!:/{};']*)", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL)
   var apk: ApkGlobal = _
   var permMap: MLinkedMap[String, Integer] = AllPermissions.hashMap
@@ -39,11 +40,11 @@ object FeatureExtractor {
   var allFeatures: MLinkedMap[String, Integer] = AllCustomFeatures.hashMap
 
   def main(args: Array[String]): Unit = {
-    if (args.length != 2) {
-      println("usage: apk_path output_path")
-      return
+    paths.foreach {
+      uri => {
+
+      }
     }
-    //val fileUri = FileUtil.toUri("/home/shasha/Forked_Repo/NotificationHelper/app/build/outputs/apk/debug/app-debug.apk")
     val fileUri = FileUtil.toUri(args(0))
     var outputUri = FileUtil.toUri(args(1))
     val reporter = new DefaultReporter
