@@ -1,5 +1,6 @@
 package org.argus.feature_extractor.random
 
+import java.io.{File, PrintWriter}
 import java.util.regex.Pattern
 
 import org.argus.amandroid.alir.componentSummary.ApkYard
@@ -10,7 +11,7 @@ import org.argus.amandroid.alir.taintAnalysis.{AndroidDataDependentTaintAnalysis
 import org.argus.amandroid.core.decompile.{DecompileLayout, DecompileStrategy, DecompilerSettings}
 import org.argus.amandroid.core.parser.IntentFilterDataBase
 import org.argus.amandroid.core.{AndroidGlobalConfig, ApkGlobal}
-import org.argus.feature_extractor.{AllPermissions, AllReceiver, DangerousCalls, Libs}
+import org.argus.feature_extractor._
 import org.argus.jawa.alir.Context
 import org.argus.jawa.alir.cfg.{ICFGNode, InterProceduralControlFlowGraph}
 import org.argus.jawa.alir.dda.InterProceduralDataDependenceAnalysis
@@ -33,13 +34,16 @@ object FeatureExtractor {
   var paymentsList: List[String] = Libs.paymentLibs
   var codeUri: FileResourceUri = _
   var allCalls: MLinkedMap[String, Integer] = mutable.LinkedHashMap()
+  var allAssets: MLinkedMap[String, Integer] = AllAssets.hashMap
+  var allFeatures: MLinkedMap[String, Integer] = AllCustomFeatures.hashMap
 
   def main(args: Array[String]): Unit = {
     if (args.length != 2) {
       println("usage: apk_path output_path")
       return
     }
-    val fileUri = FileUtil.toUri("/home/shasha/Forked_Repo/NotificationHelper/app/build/outputs/apk/debug/app-debug.apk")
+    //val fileUri = FileUtil.toUri("/home/shasha/Forked_Repo/NotificationHelper/app/build/outputs/apk/debug/app-debug.apk")
+    val fileUri = FileUtil.toUri(args(0))
     var outputUri = FileUtil.toUri(args(1))
     val reporter = new DefaultReporter
     val yard = new ApkYard(reporter)
@@ -51,7 +55,6 @@ object FeatureExtractor {
     codeUri = outputUri + name + "/"
     codeUri.replace("file:", "")
     val component = apk.model.getComponents.head // get any component you want to perform analysis
-    println(permMap.toString)
     apk.model.getEnvMap.get(component) match {
       case Some((esig, _)) =>
         val ep = apk.getMethod(esig).get
@@ -78,95 +81,53 @@ object FeatureExtractor {
 
     val permissions = apk.model.getUsesPermissions
     val receivers = apk.model.getIntentFilterDB
-    val isNumberPresent = numberFinder()
-    val isPaymentSDKPresent = checkForPayment()
 
     modAll(permissions)(permMap)
     modAllRecv(receivers)(recvMap)
     assetAnalyser()
-    
     modDangerousCall(allCalls)(dangerApis)
 
-    // METHODWISE CODE ANALYSIS
+    setCustomFeatures()
+    /* METHOD_WISE CODE ANALYSIS */
+
+    var isCheckingForEmulator = false
+    var isCheckingInstalledApplications = false
+    var isTryingToHide = false
+    var isDeletinMessages = false
+    var isURLAnIP = false
+
     val allMethods = apk.getApplicationClasses.map(c => c.getDeclaredMethods).reduce(_ ++ _)
     allMethods.foreach { m =>
       val code = m.retrieveCode.toString
-
-      //      println("isCheckingForEmulator: " + checkForEmulator(code))
-      //      println("isCheckingInstalledApplications: " + isCheckingInstalledApplications(code))
-      //      println("isTryingToHide: " + isTryingToHide(code))
-      //      println("isDeletingMessages: " + isDeletingMessages(code))
-      //      println("isURLAnIP: " + isUrlAnIpAddress(code))
+      if (!isCheckingForEmulator)
+        isCheckingForEmulator = checkForEmulator(code)
+      if (!isCheckingInstalledApplications)
+        isCheckingInstalledApplications = checkInstalledApplications(code)
+      if (!isTryingToHide)
+        isTryingToHide = checkHide(code)
+      if (!isURLAnIP)
+        isURLAnIP = checkURLForIp(code)
+      if (!isDeletinMessages)
+        isDeletinMessages = isDeletingMessages(code)
     }
-  }
 
-  def isUrlAnIpAddress(code: String): Boolean = {
-    var matcher = urlPattern.matcher(code)
-    while (matcher.find) {
-      var start = matcher.start(1)
-      var end = matcher.end()
-      var url = code.substring(start, end)
-      var counter = 0
-      url.foreach {
-        a => {
-          if (Character.isDigit(a)) counter = counter + 1
-        }
-      }
-      if (counter > 7)
-        return true
-    }
-    false
-  }
+    if (isCheckingForEmulator)
+      allAssets.put("isCheckingForEmulator", 1)
+    if (isCheckingInstalledApplications)
+      allAssets.put("isCheckingForInstalledApplications", 1)
+    if (isTryingToHide)
+      allAssets.put("isTryingToHide", 1)
+    if (isURLAnIP)
+      allAssets.put("isDeletingMessages", 1)
+    if (isDeletinMessages)
+      allAssets.put("isURLAnIp", 1)
 
-  def checkForEmulator(code: String): Boolean = {
-    //Check for emulator
-    if (code.contains("android.os.Build.FINGERPRINT") && code.contains("startsWith") && code.contains("generic"))
-      true
-    else if (code.contains("android.os.Build.FINGERPRINT") && code.contains("android.os.Build.FINGERPRINT") && code.contains("unknown"))
-      true
-    else if (code.contains("android.os.Build.MODEL") && code.contains("contains") && code.contains("google_sdk"))
-      true
-    else if (code.contains("android.os.Build.MODEL") && code.contains("contains") && code.contains("Emulator"))
-      true
-    else if (code.contains("android.os.Build.MODEL") && code.contains("contains") && code.contains("Android SDK built for x86"))
-      true
-    else if (code.contains("android.os.Build.MANUFACTURER") && code.contains("contains") && code.contains("Genymotion"))
-      true
-    else if (code.contains("android.os.Build.BRAND") && code.contains("generic") && code.contains("startsWith") && code.contains("android.os.Build.DEVICE"))
-      true
-    else if (code.contains("android.os.Build.PRODUCT") && code.contains("google_sdk") && code.contains("android.os.Build.PRODUCT"))
-      true
-    else
-      false
-  }
-
-  def isCheckingInstalledApplications(code: String): Boolean = {
-    if (code.contains("getPackageManager") && code.contains("getInstalledApplications"))
-      true
-    else if (code.contains("getPackageManager") && code.contains("queryIntentActivities"))
-      true
-    else
-      false
-  }
-
-  def isTryingToHide(code: String): Boolean = {
-    if (code.contains("getPackageManager") && code.contains("android.content.ComponentName") && code.contains("setComponentEnabledSetting"))
-      true
-    else
-      false
-  }
-
-  def isDeletingMessages(code: String): Boolean = {
-    if (code.contains("content://sms") && code.contains("getContentResolver") && code.contains("delete"))
-      true
-    else
-      false
+    mapSummer()
   }
 
   def modDangerousCall(item: MLinkedMap[String, Integer])(hashMap: MLinkedMap[String, Integer]): Unit = {
     item.foreach {
       hello => {
-        println(hello)
         hashMap.foreach {
           set => {
             var matchRatio = similarity(hello._1, set._1)
@@ -227,16 +188,79 @@ object FeatureExtractor {
     costs(s2.length)
   }
 
+  def setCustomFeatures(): Unit = {
+    val isNumberPresent = numberFinder()
+    val isPaymentSDKPresent = checkForPayment()
+    val isDangerousLibPresent = checkForDangerousLibs()
+
+    if (isNumberPresent)
+      allFeatures.put("isNumberPresent", 1)
+    if (isPaymentSDKPresent)
+      allFeatures.put("isPaymentSDKUsed", 1)
+    if (isDangerousLibPresent)
+      allFeatures.put("isDangerousLibPresent", 1)
+  }
+
+  def checkForPayment(): Boolean = {
+    var value = codeUri + "third_party_libs.txt"
+    val lines = fromFile(value.replace("file:", ""))
+    var itr = lines.getLines()
+    itr.foreach {
+      lib => {
+        if (paymentsList.contains(lib.toLowerCase()))
+          return true
+      }
+    }
+    false
+  }
+
+  def checkForDangerousLibs(): Boolean = {
+    var value = codeUri + "third_party_libs.txt"
+    val lines = fromFile(value.replace("file:", ""))
+    var itr = lines.getLines()
+    itr.foreach {
+      lib => {
+        if (dangerousList.contains(lib.toLowerCase()))
+          return true
+      }
+    }
+    false
+  }
+
   def assetAnalyser(): Unit = {
     val so_files = FileUtil.listFiles(codeUri, ".so", recursive = true)
+    if (so_files.nonEmpty)
+      allAssets.put(".so", 1)
+
     val lnk_file = FileUtil.listFiles(codeUri, ".lnk", recursive = true)
+    if (lnk_file.nonEmpty)
+      allAssets.put(".lnk", 1)
+
     val exe_file = FileUtil.listFiles(codeUri, ".exe", recursive = true)
+    if (exe_file.nonEmpty)
+      allAssets.put(".exe", 1)
+
     val zip_file = FileUtil.listFiles(codeUri, ".zip", recursive = true)
+    if (zip_file.nonEmpty)
+      allAssets.put(".zip", 1)
+
     val tar_file = FileUtil.listFiles(codeUri, ".tar", recursive = true)
+    if (tar_file.nonEmpty)
+      allAssets.put(".tar", 1)
+
     val rar_file = FileUtil.listFiles(codeUri, ".rar", recursive = true)
+    if (rar_file.nonEmpty)
+      allAssets.put(".rar", 1)
+
     val sevenz_file = FileUtil.listFiles(codeUri, ".7z", recursive = true)
-    val areContacts = numberFinder()
-    val isExtension = checkAllFilesType()
+    if (sevenz_file.nonEmpty)
+      allAssets.put(".7z", 1)
+
+    if (numberFinder())
+      allAssets.put("hasContacts", 1)
+
+    if (checkAllFilesType())
+      allAssets.put("fakeExtension", 1)
   }
 
   // Number fetcher
@@ -264,15 +288,19 @@ object FeatureExtractor {
   }
 
   def checkAllFilesType(): Boolean = {
-    val files = FileUtil.listFiles(codeUri + "assets/", "", recursive = true)
-    files.foreach {
-      uri => {
-        val cmd = "file -z " + uri.replace("file:", "")
-        val exitCode = cmd.!
-        //zip, rar, lsb shared object, executable
-        if (exitCode.toString.toLowerCase().contains("zip") || exitCode.toString.toLowerCase().contains("rar") || exitCode.toString.toLowerCase().contains("lsb") || exitCode.toString.toLowerCase().contains("executable"))
-          return true
+    try {
+      val files = FileUtil.listFiles(codeUri + "assets/", "", recursive = true)
+      files.foreach {
+        uri => {
+          val cmd = "file -z " + uri.replace("file:", "")
+          val exitCode = cmd.!
+          //zip, rar, lsb shared object, executable
+          if (exitCode.toString.toLowerCase().contains("zip") || exitCode.toString.toLowerCase().contains("rar") || exitCode.toString.toLowerCase().contains("lsb") || exitCode.toString.toLowerCase().contains("executable"))
+            return true
+        }
       }
+    } catch {
+        case e: Exception =>
     }
     false
   }
@@ -288,7 +316,6 @@ object FeatureExtractor {
         }
       }
     }
-    printMap(hashMap)
   }
 
   def modAll(item: ISet[String])(hashMap: MLinkedMap[String, Integer]): Unit = {
@@ -299,7 +326,6 @@ object FeatureExtractor {
         }
       }
     }
-    printMap(hashMap)
   }
 
   def printMap(hashMap: MLinkedMap[String, Integer]): Unit = {
@@ -311,29 +337,76 @@ object FeatureExtractor {
     }
   }
 
-  def checkForPayment(): Boolean = {
-    var value = codeUri + "third_party_libs.txt"
-    val lines = fromFile(value.replace("file:", ""))
-    var itr = lines.getLines()
-    itr.foreach {
-      lib => {
-        if (paymentsList.contains(lib.toLowerCase()))
-          return true
+  def checkURLForIp(code: String): Boolean = {
+    var matcher = urlPattern.matcher(code)
+    while (matcher.find) {
+      var start = matcher.start(1)
+      var end = matcher.end()
+      var url = code.substring(start, end)
+      var counter = 0
+      url.foreach {
+        a => {
+          if (Character.isDigit(a)) counter = counter + 1
+        }
       }
+      if (counter > 7)
+        return true
     }
     false
   }
 
-  def checkForDangerousLibs(): Boolean = {
-    var value = codeUri + "third_party_libs.txt"
-    val lines = fromFile(value.replace("file:", ""))
-    var itr = lines.getLines()
-    itr.foreach {
-      lib => {
-        if (dangerousList.contains(lib.toLowerCase()))
-          return true
-      }
+  def checkForEmulator(code: String): Boolean = {
+    //Check for emulator
+    if (code.contains("android.os.Build.FINGERPRINT") && code.contains("startsWith") && code.contains("generic"))
+      true
+    else if (code.contains("android.os.Build.FINGERPRINT") && code.contains("android.os.Build.FINGERPRINT") && code.contains("unknown"))
+      true
+    else if (code.contains("android.os.Build.MODEL") && code.contains("contains") && code.contains("google_sdk"))
+      true
+    else if (code.contains("android.os.Build.MODEL") && code.contains("contains") && code.contains("Emulator"))
+      true
+    else if (code.contains("android.os.Build.MODEL") && code.contains("contains") && code.contains("Android SDK built for x86"))
+      true
+    else if (code.contains("android.os.Build.MANUFACTURER") && code.contains("contains") && code.contains("Genymotion"))
+      true
+    else if (code.contains("android.os.Build.BRAND") && code.contains("generic") && code.contains("startsWith") && code.contains("android.os.Build.DEVICE"))
+      true
+    else if (code.contains("android.os.Build.PRODUCT") && code.contains("google_sdk") && code.contains("android.os.Build.PRODUCT"))
+      true
+    else
+      false
+  }
+
+  def checkInstalledApplications(code: String): Boolean = {
+    if (code.contains("getPackageManager") && code.contains("getInstalledApplications"))
+      true
+    else if (code.contains("getPackageManager") && code.contains("queryIntentActivities"))
+      true
+    else
+      false
+  }
+
+  def checkHide(code: String): Boolean = {
+    if (code.contains("getPackageManager") && code.contains("android.content.ComponentName") && code.contains("setComponentEnabledSetting"))
+      true
+    else
+      false
+  }
+
+  def isDeletingMessages(code: String): Boolean = {
+    if (code.contains("content://sms") && code.contains("getContentResolver") && code.contains("delete"))
+      true
+    else
+      false
+  }
+
+  def mapSummer(): Unit = {
+    var fullFeatures = permMap ++ recvMap ++ dangerApis ++ allAssets ++ allFeatures
+    val pw = new PrintWriter(new File("home/shasha/FeatureExtractor"+apk.model.getAppName+".txt"))
+    fullFeatures.foreach {
+      set =>
+        pw.write(set.toString())
     }
-    false
+    pw.close()
   }
 }
