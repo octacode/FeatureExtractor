@@ -25,7 +25,6 @@ import scala.sys.process._
 import scala.xml.XML
 
 object FeatureExtractor {
-  val paths: List[String] = Paths.uris
   private val urlPattern = Pattern.compile("(?:^|[\\W])((ht|f)tp(s?):\\/\\/|www\\.)" + "(([\\w\\-]+\\.){1,}?([\\w\\-.~]+\\/?)*" + "[\\p{Alnum}.,%_=?&#\\-+()\\[\\]\\*$~@!:/{};']*)", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL)
   var apk: ApkGlobal = _
   var permMap: MLinkedMap[String, Integer] = AllPermissions.hashMap
@@ -38,12 +37,25 @@ object FeatureExtractor {
   var allCalls: MLinkedMap[String, Integer] = mutable.LinkedHashMap()
   var allAssets: MLinkedMap[String, Integer] = AllAssets.hashMap
   var allFeatures: MLinkedMap[String, Integer] = AllCustomFeatures.hashMap
+  var resultUri: String = _
 
   @throws(classOf[Exception])
   def main(args: Array[String]): Unit = {
+    if (args.length != 3) {
+      println("Usage\nsourceFolder destFolder resultFolder")
+      return
+    }
+    var folderUri = FileUtil.toUri(args(0))
+    var paths = FileUtil.listFiles(folderUri, ".apk", recursive = false)
+
+    if (paths.isEmpty) {
+      println("No apks present in the specified folder")
+      return
+    }
+    resultUri = args(2)
     try {
       paths.foreach {
-        uri => {
+        fileUri => {
           //REFRESH THE MAPS
           permMap = AllPermissions.hashMap
           recvMap = AllReceiver.hashMap
@@ -52,7 +64,6 @@ object FeatureExtractor {
           allAssets = AllAssets.hashMap
           allFeatures = AllCustomFeatures.hashMap
 
-          val fileUri = FileUtil.toUri("/home/shasha/100Dataset/" + uri)
           outputUri = FileUtil.toUri(args(1))
           val reporter = new DefaultReporter
           val yard = new ApkYard(reporter)
@@ -143,7 +154,7 @@ object FeatureExtractor {
         }
       }
     } catch {
-      case e:Exception =>
+      case e: Exception =>
     }
   }
 
@@ -432,7 +443,7 @@ object FeatureExtractor {
   @throws(classOf[Exception])
   def mapSummer(): Unit = {
     var fullFeatures = permMap ++ recvMap ++ dangerApis ++ allAssets ++ allFeatures
-    val writer = new PrintWriter("/home/shasha/FeatureExtarctorOutput/" + apk.model.getAppName.replace(".apk", "") + ".txt", "UTF-8")
+    val writer = new PrintWriter(resultUri + apk.model.getAppName.replace(".apk", "") + ".txt", "UTF-8")
     fullFeatures.foreach {
       set =>
         writer.write(set.toString() + "\n")
